@@ -6,14 +6,19 @@ import axios from "axios";
 export const API_URL = `${import.meta.env.VITE_API_URL}/api`;
 
 const api = axios.create({
-  baseURL: API_URL, // now uses your Render backend in production
+  baseURL: API_URL,
 });
 
-// Attach token automatically
+// Attach token automatically (web-safe, SSR-safe)
 api.interceptors.request.use(async (config) => {
   try {
-    const role = await AsyncStorage.getItem("role"); // who's logged in
-    const token = await AsyncStorage.getItem(`${role}Token`);
+    // Prevent AsyncStorage from running on the server (SSR)
+    if (typeof window === "undefined") {
+      return config; // running on server → skip token logic
+    }
+
+    const role = await AsyncStorage.getItem("role");
+    const token = role ? await AsyncStorage.getItem(`${role}Token`) : null;
 
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -21,6 +26,7 @@ api.interceptors.request.use(async (config) => {
   } catch (err) {
     console.error("❌ Axios interceptor error:", err.message);
   }
+
   return config;
 });
 
